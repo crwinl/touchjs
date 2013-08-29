@@ -1,0 +1,13 @@
+{
+  "name": "touchjs",
+  "version": "1.0.0",
+  "main": "touch.js",
+  "dependencies": {
+    "uglify-js": "~2.4.0",
+    "buildModules":"git+https://git@github.com/fresheneesz/buildModules.git#2f50ea0830b0fa580c087b4bfa947de2e7b7d7c3"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git://github.com/fresheneesz/touchjs"
+  }
+}
