@@ -8,7 +8,7 @@ This library is useful for creating very precise touch gestures, allowing the pr
 Install
 =======
 
-
+npm install git+https://git@github.com/fresheneesz/touchjs.git#86ffb8ec32481e1dba4f8ec892419f7edb8b8699
 
 Usage
 =====
