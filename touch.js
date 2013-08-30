@@ -13,6 +13,11 @@
 exports.touch = touch
 exports.untouch = untouch
 
+// really supposed to be private.. since they aren't directly related to touch event handling, but are exposed for use in magicPointer (it didn't seem like enough code to factor out)
+touch.nodeToRectangle = nodeToRectangle
+touch.isInBounds = isInBounds
+touch.TouchEvent = TouchEvent
+
 var handlerList = []
 
 // eventTypes should be a space-separated list of any of the event types: start
@@ -34,18 +39,21 @@ function touch(jqueryObject, eventTypes, handler) {
 }
 
 function untouch(jqueryObject, eventTypes, handler) {
-    if(handler === undefined) {
-        jqueryObject.off(eventTypes)
-    } else {
-        var internalHandler;
-        for(var n=0; n<handlerList.length; n++) {
-            var handlers = handlerList[n]
-            if(handler === handlers.external) {  // javascript maps can't use non-strings as keys : (
-                internalHandler = handlers.internal
-                break
+    var types = eventTypes.split(" ")
+    if(types.indexOf('start') != -1) {
+        if(handler === undefined) {
+            jqueryObject.off('touchstart')
+        } else {
+            var internalHandler;
+            for(var n=0; n<handlerList.length; n++) {
+                var handlers = handlerList[n]
+                if(handler === handlers.external) {  // javascript maps can't use non-strings as keys : (
+                    internalHandler = handlers.internal
+                    break
+                }
             }
+            jqueryObject.off('touchstart', internalHandler)
         }
-        jqueryObject.off(eventTypes, internalHandler)
     }
 }
 
@@ -66,10 +74,15 @@ function TouchEvent(pEvent, domObject, standardTouchObject, type) {
                     },
                     rotation: rotationAngle
                 }
-
-    this.force = standardTouchObject.force || standardTouchObject.mozPressure
-                 || standardTouchObject.mozPressure || standardTouchObject.webkitForce
-                 || 1
+	
+	if(standardTouchObject.force !== undefined) 
+		this.force = standardTouchObject.force
+	else if(standardTouchObject.mozPressure !== undefined && standardTouchObject.mozPressure !== 0) // mozPressure seems to always be 0 in firefox using phantomLimb (testing on firefox 16)
+		this.force = standardTouchObject.mozPressure
+	else if(standardTouchObject.webkitForce !== undefined)
+		this.force = standardTouchObject.webkitForce
+	else 
+		this.force = 1
 
     this.source = 'touch'
 
@@ -108,6 +121,14 @@ function TouchEvent(pEvent, domObject, standardTouchObject, type) {
 
             var that = this
             var $target = $(this.target)
+
+            ;['end','cancel','move','leave', 'enter'].forEach(function(type) {
+                if(types.indexOf(type) != -1) {
+                    addExternalHandler('touch'+type)
+                }
+            })
+
+            return this
 
             function createHandler(typeToRequire, requestedType) {
                 var handler = function(pEvent) {
@@ -160,14 +181,6 @@ function TouchEvent(pEvent, domObject, standardTouchObject, type) {
                     $target.on(typeToRequire, handler)
                 }
             }
-
-            ;['end','cancel','move','leave', 'enter'].forEach(function(type) {
-                if(types.indexOf(type) != -1) {
-                    addExternalHandler('touch'+type)
-                }
-            })
-
-            return this
         },
 
         off: function(eventTypes, originalPassedHandler) {
