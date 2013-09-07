@@ -10,8 +10,8 @@
         * https://github.com/flesler/hashmap
 */
 
-exports.touch = touch
-exports.untouch = untouch
+module.exports = touch
+touch.untouch = untouch
 
 // really supposed to be private.. since they aren't directly related to touch event handling, but are exposed for use in magicPointer (it didn't seem like enough code to factor out)
 touch.nodeToRectangle = nodeToRectangle
@@ -122,6 +122,9 @@ function TouchEvent(pEvent, domObject, standardTouchObject, type) {
             var that = this
             var $target = $(this.target)
 
+            addExternalHandler('touchend')
+            addExternalHandler('touchcancel')
+
             ;['end','cancel','move','leave', 'enter'].forEach(function(type) {
                 if(types.indexOf(type) != -1) {
                     addExternalHandler('touch'+type)
@@ -138,10 +141,11 @@ function TouchEvent(pEvent, domObject, standardTouchObject, type) {
                             var touchEvent = new TouchEvent(pEvent, subthis, touch, requestedType)
                             runHandlers(typeToRequire, subthis, touchEvent)
 
-                            if(typeToRequire === 'touchend' || typeToRequire === 'touchcancel')
+                            console.log("typeToRequire: "+typeToRequire)
+                            if(typeToRequire === 'touchend' || typeToRequire === 'touchcancel') {
                                 rmHandlers(that)
 
-                            else if(that.over !== undefined && typeToRequire === 'touchmove') {
+                            } else if(that.over !== undefined && typeToRequire === 'touchmove') {
                                 var wasOver = that.over
                                 var isNowOver = isInBounds(touchEvent.page, nodeToRectangle($target))
                                 that.over = isNowOver
@@ -151,6 +155,10 @@ function TouchEvent(pEvent, domObject, standardTouchObject, type) {
                                 } else if(!wasOver && isNowOver) {
                                     runHandlers('touchenter', subthis, touchEvent)
                                 }
+
+                                // these two need to be there if any other event exists
+                                createHandlerIfNecessary('touchend', 'end')
+                                createHandlerIfNecessary('touchcancel', 'cancel')
                             }
                         }
                     })
@@ -164,6 +172,14 @@ function TouchEvent(pEvent, domObject, standardTouchObject, type) {
                 })
             }
 
+            function createHandlerIfNecessary(typeToRequire, type) {
+                if(!that.internalHandlers[typeToRequire]) {
+                    var handler = createHandler(typeToRequire, type)
+                    that.internalHandlers[typeToRequire] = handler
+                    $target.on(typeToRequire, handler)
+                }
+            }
+
             function addExternalHandler(type) {
                 that.handlers[type].push(passedHandler)
 
@@ -175,11 +191,7 @@ function TouchEvent(pEvent, domObject, standardTouchObject, type) {
                     }
                 }
 
-                if(!that.internalHandlers[typeToRequire]) {
-                    var handler = createHandler(typeToRequire, type)
-                    that.internalHandlers[typeToRequire] = handler
-                    $target.on(typeToRequire, handler)
-                }
+                createHandlerIfNecessary(typeToRequire, type)
             }
         },
 
@@ -188,7 +200,6 @@ function TouchEvent(pEvent, domObject, standardTouchObject, type) {
 
             var that = this
             types.forEach(function(type) {
-                addExternalHandler('touch'+type)
                 if(originalPassedHandler === undefined) {
                     that.handlers['touch'+type] = []
                 } else {
@@ -223,6 +234,7 @@ function TouchEvent(pEvent, domObject, standardTouchObject, type) {
 function rmHandlers(touchEvent) {
     var $target = $(touchEvent.target)
     for(var type in touchEvent.internalHandlers) {
+        console.log("removed hander for: "+type)
         $target.off(type, touchEvent.internalHandlers[type])
     }
 }
